@@ -23,8 +23,8 @@ void STFT(std::vector<float>& audio, AmpSpectrum& res, int hop_length, int frame
 
     double * data;
     fftw_complex *fftw_res;
-    data = (double*) malloc(sizeof(double) * frame_length);
-    fftw_res = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * frame_length);
+    data = (double*) fftw_malloc(sizeof(double) * frame_length);
+    fftw_res = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * (frame_length/2 + 1));
     fftw_plan plan_forward = fftw_plan_dft_r2c_1d(frame_length, data, fftw_res, FFTW_MEASURE);
     // create hamming window and frame buffer.
     std::vector<float> window(frame_length);
@@ -43,4 +43,7 @@ void STFT(std::vector<float>& audio, AmpSpectrum& res, int hop_length, int frame
         }
     }
     res = std::move(amp);
+    fftw_destroy_plan(plan_forward);
+    fftw_free(data);
+    fftw_free(fftw_res);
 }
