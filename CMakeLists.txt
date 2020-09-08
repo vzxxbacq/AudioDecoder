@@ -8,9 +8,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 find_package(FFmpeg) #add here the list of ffmpeg components required
 find_package(GLOG)
 find_package(GTest)
-message(${GTEST_LIBRARIES})
+find_package(FFTW)
 if(GTEST_FOUND)
-    message("GTEST include:" ${GTEST_INCLUDE_DIRS})
     include_directories(${GTEST_INCLUDE_DIRS})
 endif()
 
@@ -24,5 +23,10 @@ if(GLOG_FOUND)
     include_directories(${GLOG_INCLUDE_DIRS})
 endif()
 
+if(FFTW_found)
+    include_directories(${FFTW_INCLUDE_DIRS})
+endif()
+
+include_directories(include)
 add_subdirectory(src)
 add_subdirectory(test)

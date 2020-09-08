@@ -6,19 +6,20 @@
 #define AUDIODECODER_DECODE_H
 
 #include <vector>
-
+#include <iostream>
 extern "C"{
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/opt.h>
 #include <libavutil/error.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/log.h>
+#include <libavutil/avutil.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/timestamp.h>
 #include <libswresample/swresample.h>
 #define SWR_CH_MAX 16
 }
-
 
 class ResampleOpt{
 public:
@@ -30,14 +31,6 @@ public:
         channels = c;
         fmt = f;
     };
-    bool operator==(ResampleOpt& a) const{
-        if(a.channels == this->channels&&a.sr == this->sr&&a.fmt == this->fmt) return true;
-        return false;
-    }
-    bool operator!=(ResampleOpt& a) const{
-        if(a.channels == this->channels&&a.sr == this->sr&&a.fmt == this->fmt) return false;
-        return true;
-    }
 };
 
 class AudioData{
@@ -47,9 +40,9 @@ public:
     int channels = 0;
     int nb_samples = 0;
     double duration = 0.0;
-
 };
 
+bool opt_equal(ResampleOpt& a, ResampleOpt& b);
 /*/
  * resample a frame to given resample opt.
  */

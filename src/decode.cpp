@@ -1,8 +1,6 @@
 //
 // Created by fhq on 2020/9/1.
 //
-
-
 #include "decode.h"
 #include <iostream>
 #include <glog/logging.h>
@@ -11,12 +9,16 @@ using std::cerr;
 using std::endl;
 using std::cout;
 
+bool opt_equal(ResampleOpt& a, ResampleOpt& b){
+    if((a.channels == b.channels)&&(a.sr == b.sr)&&(a.fmt == b.fmt)) return true;
+    else return false;
+}
+
 static int decode_packet(AVPacket* pkt, AVCodecContext** dec_ctx, int stream_idx,
                          AudioData* audioData, SwrContext* swr, ResampleOpt* in_opt, ResampleOpt* out_opt) {
     int ret;
     int data_size ;
     int decoded = pkt->size;
-    AVFrame* out_fr = av_frame_alloc();
     AVFrame* frame = av_frame_alloc();
 
     if (pkt->stream_index == stream_idx) {
@@ -43,7 +45,8 @@ static int decode_packet(AVPacket* pkt, AVCodecContext** dec_ctx, int stream_idx
                 return -1;
             }
 
-            if(in_opt != out_opt){
+            if(!opt_equal(*in_opt, *out_opt)){
+                AVFrame* out_fr = av_frame_alloc();
                 resample(swr, frame, out_fr, in_opt, out_opt);
                 for (int ch = 0; ch < out_opt->channels; ch++) {
                     auto* data_per_channel = (float*) out_fr->data[ch];
@@ -52,6 +55,7 @@ static int decode_packet(AVPacket* pkt, AVCodecContext** dec_ctx, int stream_idx
                     }
                 }
                 audioData->nb_samples += out_fr->nb_samples;
+                av_frame_unref(out_fr);
             } else {
                 for (int ch = 0; ch < (*dec_ctx)->channels; ch++) {
                     auto *data = (float *) frame->data[ch];
@@ -62,7 +66,6 @@ static int decode_packet(AVPacket* pkt, AVCodecContext** dec_ctx, int stream_idx
             }
         }
     }
-    av_frame_unref(out_fr);
     return decoded;
 }
 
@@ -95,12 +98,13 @@ int resample(SwrContext* swr, AVFrame* in, AVFrame* out, ResampleOpt* in_opt, Re
         }
 
         //输入也可能是分平面的，所以要做如下处理
-        uint8_t* m_ain[SWR_CH_MAX];
-        setup_array(m_ain, in, in_opt->fmt);
+        //uint8_t* m_ain[SWR_CH_MAX];
+        //setup_array(m_ain, in, in_opt->fmt);
 
         //注意这里，out_count和in_count是samples单位，不是byte
         //所以这样av_get_bytes_per_sample(in_fmt_ctx->streams[audio_index]->codec->sample_fmt) * src_nb_samples是错的
-        swr_convert(swr, out->data, out->nb_samples, (const uint8_t**)m_ain, src_nb_samples);
+        const auto ** in_buf = (const uint8_t ** )in->data;
+        swr_convert(swr, out->data, out->nb_samples, in_buf, src_nb_samples);
     }
     return 0;
 }
@@ -139,7 +143,7 @@ int decode(const char* infile, ResampleOpt out_opt, AudioData& audio){
     audio.sample_rate = out_opt.sr;
 
     SwrContext * swr;
-    if(in_opt != out_opt){
+    if(!opt_equal(in_opt, out_opt)){
         swr = swr_alloc();
         swr = swr_alloc_set_opts(
                 swr,
@@ -225,25 +229,5 @@ static int open_codec_context(int *stream_idx,
         }
         *stream_idx = stream_index;
     }
-    return 0;
-}
-
-int main(int argc, char** argv){
-    if(argc < 2){
-        LOG(INFO) << "Usage: ./Decode file_path sample_rate."
-                  << "Decode given audio file or video file with specific sample rate.";
-    }
-    const char* infile = argv[1];
-    int sample_rate = (int)strtol(argv[2], nullptr, 10);
-
-    ResampleOpt out(sample_rate, 2, AV_SAMPLE_FMT_FLTP);
-    AudioData audio;
-    decode(infile, out, audio);
-    LOG(INFO)
-        << "\nsample rate:         " << audio.sample_rate << endl
-        << "number samples:      " << audio.nb_samples << endl
-        << "channels:            " << audio.channels << endl
-        << "duration:            " << audio.duration << " [sec]" << endl
-        << "sample in 1.ch 60000 " << audio.samples[0][60000] << endl;
     return 0;
 }
